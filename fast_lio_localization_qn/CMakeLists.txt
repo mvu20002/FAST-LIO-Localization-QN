@@ -15,25 +15,11 @@ else(OPENMP_FOUND)
 endif(OPENMP_FOUND)
 set(CMAKE_CXX_FLAGS_RELEASE "-O3 -Wall -Wextra ${CMAKE_CXX_FLAGS}")
 
-### get packages
-find_package(catkin REQUIRED COMPONENTS
-  roscpp
-  rosbag
-  std_msgs
-  geometry_msgs
-  nav_msgs
-  sensor_msgs
-  visualization_msgs
-  tf
-  tf_conversions
-  pcl_ros
-  pcl_conversions
-  message_filters
-  nano_gicp
-  quatro
-)
 find_package(PCL REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(ament_cmake_auto REQUIRED)
+ament_auto_find_build_dependencies()
+
 if(PCL_FOUND)
   message(WARNING "PCL_VER: ${PCL_VERSION}, and PCL_DIR: ${PCL_INCLUDE_DIRS}")
 endif()
@@ -41,12 +27,9 @@ if(Eigen3_FOUND)
   message(WARNING "EIGEN_VER: ${EIGEN3_VERSION_STRING}, and Eigen DIR: ${EIGEN3_INCLUDE_DIR}")
 endif()
 
-catkin_package() #this automatically adds/installs the results of build
-
 ### get packages' headers
 include_directories(
   include
-  ${catkin_INCLUDE_DIRS}
   ${PCL_INCLUDE_DIRS}
   ${EIGEN3_INCLUDE_DIR}
 )
@@ -56,9 +39,11 @@ include_directories(
 ## Build ##
 ###########
 ### main
-set(COMMON_LIBS ${catkin_LIBRARIES} ${PCL_LIBRARIES} ${EIGEN3_LIBS} ${OpenMP_LIBS})
-add_library(${PROJECT_NAME}_modules src/fast_lio_localization_qn.cpp src/map_matcher.cpp)
-target_link_libraries(${PROJECT_NAME}_modules ${COMMON_LIBS})
+set(COMMON_LIBS  ${PCL_LIBRARIES} ${EIGEN3_LIBS} ${OpenMP_LIBS})
+ament_auto_add_library(${PROJECT_NAME}_modules  src/map_matcher.cpp)
+target_link_libraries(${PROJECT_NAME}_modules ${COMMON_LIBS} teaserpp::teaser_registration teaserpp::teaser_io)
 
-add_executable(${PROJECT_NAME}_node src/main.cpp)
-target_link_libraries(${PROJECT_NAME}_node ${COMMON_LIBS} ${PROJECT_NAME}_modules)
+# ament_auto_add_executable(${PROJECT_NAME}_node src/main.cpp)
+# target_link_libraries(${PROJECT_NAME}_node ${COMMON_LIBS} ${PROJECT_NAME}_modules)
+
+ament_auto_package()

@@ -11,21 +11,15 @@
 #include <memory>
 #include <utility> // pair, make_pair
 ///// ROS
-#include <ros/ros.h>
-#include <rosbag/bag.h>               // load map
-#include <rosbag/view.h>              // load map
-#include <tf/LinearMath/Quaternion.h> // to Quaternion_to_euler
-#include <tf/LinearMath/Matrix3x3.h>  // to Quaternion_to_euler
-#include <tf/transform_datatypes.h>   // createQuaternionFromRPY
-#include <tf_conversions/tf_eigen.h>  // tf <-> eigen
-#include <tf/transform_broadcaster.h> // broadcaster
-#include <sensor_msgs/PointCloud2.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <nav_msgs/Odometry.h>
-#include <nav_msgs/Path.h>
-#include <visualization_msgs/Marker.h>
+#include <tf2_ros/transform_broadcaster.h> // broadcaster
+#include <sensor_msgs/msg/point_cloud2.hpp>
+#include <geometry_msgs/msg/pose_stamped.hpp>
+#include <nav_msgs/msg/odometry.hpp>
+#include <nav_msgs/msg/path.hpp>
+#include <visualization_msgs/msg/marker.hpp>
+#include <message_filters/sync_policies/exact_time.h>
 #include <message_filters/subscriber.h>
-#include <message_filters/time_synchronizer.h>
+#include <message_filters/synchronizer.h>
 #include <message_filters/sync_policies/approximate_time.h>
 ///// PCL
 #include <pcl/point_types.h>                 //pt
@@ -47,7 +41,7 @@
 #include "map_matcher.h"
 
 using namespace std::chrono;
-typedef message_filters::sync_policies::ApproximateTime<nav_msgs::Odometry, sensor_msgs::PointCloud2> odom_pcd_sync_pol;
+typedef message_filters::sync_policies::ApproximateTime<nav_msgs::msg::Odometry, sensor_msgs::msg::PointCloud2> odom_pcd_sync_pol;
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////
 class FastLioLocalizationQn
@@ -67,38 +61,57 @@ private:
     double voxel_res_;
     ///// visualize
     bool saved_map_vis_switch_ = true;
-    tf::TransformBroadcaster broadcaster_;
-    nav_msgs::Path raw_odom_path_, corrected_odom_path_;
+    tf2_ros::TransformBroadcaster broadcaster_;
+    nav_msgs::msg::Path raw_odom_path_, corrected_odom_path_;
     std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>> matched_pairs_xyz_; // for vis
     pcl::PointCloud<pcl::PointXYZ> raw_odoms_, corrected_odoms_;
     pcl::PointCloud<PointType> saved_map_pcd_; // for vis
     ///// ros
-    ros::NodeHandle nh_;
-    ros::Publisher corrected_odom_pub_, corrected_path_pub_, odom_pub_, path_pub_;
-    ros::Publisher corrected_current_pcd_pub_, realtime_pose_pub_, map_match_pub_;
-    ros::Publisher saved_map_pub_;
-    ros::Publisher debug_src_pub_, debug_dst_pub_, debug_coarse_aligned_pub_, debug_fine_aligned_pub_;
-    ros::Timer match_timer_;
+    // ros::NodeHandle nh_;
+    rclcpp::PublisherBase::SharedPtr corrected_odom_pub_, corrected_path_pub_, odom_pub_, path_pub_;
+    rclcpp::PublisherBase::SharedPtr corrected_current_pcd_pub_, realtime_pose_pub_, map_match_pub_;
+    rclcpp::PublisherBase::SharedPtr saved_map_pub_;
+    rclcpp::PublisherBase::SharedPtr debug_src_pub_, debug_dst_pub_, debug_coarse_aligned_pub_, debug_fine_aligned_pub_;
+    rclcpp::TimerBase::SharedPtr match_timer_;
     // odom, pcd sync subscriber
     std::shared_ptr<message_filters::Synchronizer<odom_pcd_sync_pol>> sub_odom_pcd_sync_ = nullptr;
-    std::shared_ptr<message_filters::Subscriber<nav_msgs::Odometry>> sub_odom_ = nullptr;
-    std::shared_ptr<message_filters::Subscriber<sensor_msgs::PointCloud2>> sub_pcd_ = nullptr;
+    std::shared_ptr<message_filters::Subscriber<nav_msgs::msg::Odometry>> sub_odom_ = nullptr;
+    std::shared_ptr<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>> sub_pcd_ = nullptr;
     ///// Map match
     std::shared_ptr<MapMatcher> map_matcher_;
 
+    rclcpp::Node::SharedPtr node_;
+    std::string saved_map_path;
+    double map_match_hz;
+    MapMatcherConfig mm_config;
+
 public:
-    explicit FastLioLocalizationQn(const ros::NodeHandle &n_private);
-    ~FastLioLocalizationQn() {};
+    explicit FastLioLocalizationQn(rclcpp::Node::SharedPtr &node_in);
+    ~FastLioLocalizationQn(){};
 
 private:
     // methods
     void updateOdomsAndPaths(const PosePcd &pose_pcd_in);
     bool checkIfKeyframe(const PosePcd &pose_pcd_in, const PosePcd &latest_pose_pcd);
-    visualization_msgs::Marker getMatchMarker(const std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>> &match_xyz_pairs);
+    visualization_msgs::msg::Marker getMatchMarker(const std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>> &match_xyz_pairs);
     void loadMap(const std::string &saved_map_path);
     // cb
-    void odomPcdCallback(const nav_msgs::OdometryConstPtr &odom_msg, const sensor_msgs::PointCloud2ConstPtr &pcd_msg);
+    void odomPcdCallback(const nav_msgs::msg::Odometry::ConstSharedPtr &odom_msg,
+                         const sensor_msgs::msg::PointCloud2::ConstSharedPtr &pcd_msg);
     void matchingTimerFunc(const ros::TimerEvent &event);
+
+    void register_params();
+    void get_params();
+
+    template<typename T>
+    inline void register_and_get_params(const std::string &param_name,
+                                        T &param,
+                                        const T &param_default)
+    {
+        node_->declare_parameter<T>(param_name, param, param_default);
+        node_->get_parameter<T>(param_name, param);
+    }
 };
+
 
 #endif

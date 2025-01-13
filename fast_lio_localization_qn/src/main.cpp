@@ -1,15 +1,17 @@
 #include "fast_lio_localization_qn.h"
+#include <rclcpp/multi_threaded_executor.hpp>
 
 int main(int argc, char **argv)
 {
-    ros::init(argc, argv, "fast_lio_localization_qn_node");
-    ros::NodeHandle nh_private("~");
 
-    FastLioLocalizationQn FastLioLocalizationQn_(nh_private);
+  rclcpp::init(argc, argv);
+  rclcpp::Node::SharedPtr node = rclcpp::Node::make_shared("fast_lio_localization_qn");
 
-    ros::AsyncSpinner spinner(3); // Use multi threads
-    spinner.start();
-    ros::waitForShutdown();
+  FastLioLocalizationQn FastLioLocalizationQn_(nh_private);
+
+  // ros::AsyncSpinner spinner(3); // Use multi threads
+  // spinner.start();
+  // ros::waitForShutdown();
 
     return 0;
 }

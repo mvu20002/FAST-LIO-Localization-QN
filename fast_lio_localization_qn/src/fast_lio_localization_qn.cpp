@@ -1,49 +1,14 @@
 #include "fast_lio_localization_qn.h"
 
-FastLioLocalizationQn::FastLioLocalizationQn(const ros::NodeHandle &n_private):
-    nh_(n_private)
+FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr& node_in):
+  node_(node_in)
 {
     ////// ROS params
     // temp vars, only used in constructor
-    std::string saved_map_path;
-    double map_match_hz;
-    MapMatcherConfig mm_config;
-    auto &gc = mm_config.gicp_config_;
-    auto &qc = mm_config.quatro_config_;
     // get params
+    
+    register_params();
     /* basic */
-    nh_.param<std::string>("/basic/map_frame", map_frame_, "map");
-    nh_.param<std::string>("/basic/saved_map", saved_map_path, "/home/mason/kitti.bag");
-    nh_.param<double>("/basic/map_match_hz", map_match_hz, 1.0);
-    nh_.param<double>("/basic/visualize_voxel_size", voxel_res_, 1.0);
-    /* keyframe */
-    nh_.param<double>("/keyframe/keyframe_threshold", keyframe_dist_thr_, 1.0);
-    nh_.param<int>("/keyframe/num_submap_keyframes", mm_config.num_submap_keyframes_, 5);
-    /* match */
-    nh_.param<double>("/match/match_detection_radius", mm_config.loop_detection_radius_, 15.0);
-    nh_.param<double>("/match/quatro_nano_gicp_voxel_resolution", mm_config.voxel_res_, 0.3);
-    /* nano */
-    nh_.param<int>("/nano_gicp/thread_number", gc.nano_thread_number_, 0);
-    nh_.param<double>("/nano_gicp/icp_score_threshold", gc.icp_score_thr_, 10.0);
-    nh_.param<int>("/nano_gicp/correspondences_number", gc.nano_correspondences_number_, 15);
-    nh_.param<double>("/nano_gicp/max_correspondence_distance", gc.max_corr_dist_, 5.0);
-    nh_.param<int>("/nano_gicp/max_iter", gc.nano_max_iter_, 32);
-    nh_.param<double>("/nano_gicp/transformation_epsilon", gc.transformation_epsilon_, 0.01);
-    nh_.param<double>("/nano_gicp/euclidean_fitness_epsilon", gc.euclidean_fitness_epsilon_, 0.01);
-    nh_.param<int>("/nano_gicp/ransac/max_iter", gc.nano_ransac_max_iter_, 5);
-    nh_.param<double>("/nano_gicp/ransac/outlier_rejection_threshold", gc.ransac_outlier_rejection_threshold_, 1.0);
-    /* quatro */
-    nh_.param<bool>("/quatro/enable", mm_config.enable_quatro_, false);
-    nh_.param<bool>("/quatro/optimize_matching", qc.use_optimized_matching_, true);
-    nh_.param<double>("/quatro/distance_threshold", qc.quatro_distance_threshold_, 30.0);
-    nh_.param<int>("/quatro/max_correspondences", qc.quatro_max_num_corres_, 200);
-    nh_.param<double>("/quatro/fpfh_normal_radius", qc.fpfh_normal_radius_, 0.02);
-    nh_.param<double>("/quatro/fpfh_radius", qc.fpfh_radius_, 0.04);
-    nh_.param<bool>("/quatro/estimating_scale", qc.estimat_scale_, false);
-    nh_.param<double>("/quatro/noise_bound", qc.noise_bound_, 0.25);
-    nh_.param<double>("/quatro/rotation/gnc_factor", qc.rot_gnc_factor_, 0.25);
-    nh_.param<double>("/quatro/rotation/rot_cost_diff_threshold", qc.rot_cost_diff_thr_, 0.25);
-    nh_.param<int>("/quatro/rotation/num_max_iter", qc.quatro_max_iter_, 50);
 
     ////// Matching init
     map_matcher_ = std::make_shared<MapMatcher>(mm_config);
@@ -55,27 +20,66 @@ FastLioLocalizationQn::FastLioLocalizationQn(const ros::NodeHandle &n_private):
     raw_odom_path_.header.frame_id = map_frame_;
     corrected_odom_path_.header.frame_id = map_frame_;
     // publishers
-    odom_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/ori_odom", 10, true);
-    path_pub_ = nh_.advertise<nav_msgs::Path>("/ori_path", 10, true);
-    corrected_odom_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/corrected_odom", 10, true);
-    corrected_path_pub_ = nh_.advertise<nav_msgs::Path>("/corrected_path", 10, true);
-    corrected_current_pcd_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/corrected_current_pcd", 10, true);
-    map_match_pub_ = nh_.advertise<visualization_msgs::Marker>("/map_match", 10, true);
-    realtime_pose_pub_ = nh_.advertise<geometry_msgs::PoseStamped>("/pose_stamped", 10);
-    saved_map_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/saved_map", 10, true);
-    debug_src_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/src", 10);
-    debug_dst_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/dst", 10);
-    debug_coarse_aligned_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/coarse_aligned_quatro", 10);
-    debug_fine_aligned_pub_ = nh_.advertise<sensor_msgs::PointCloud2>("/fine_aligned_nano_gicp", 10);
+    odom_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/ori_odom", 10, true);
+    path_pub_ = node_->create_subscription<nav_msgs::msg::Path>("/ori_path", 10, true);
+    corrected_odom_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/corrected_odom", 10, true);
+    corrected_path_pub_ = node_->create_subscription<nav_msgs::msg::Path>("/corrected_path", 10, true);
+    corrected_current_pcd_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/corrected_current_pcd", 10, true);
+    map_match_pub_ = node_->create_subscription<visualization_msgs::msg::Marker>("/map_match", 10, true);
+    realtime_pose_pub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_stamped", 10);
+    saved_map_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/saved_map", 10, true);
+    debug_src_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/src", 10);
+    debug_dst_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/dst", 10);
+    debug_coarse_aligned_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/coarse_aligned_quatro", 10);
+    debug_fine_aligned_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/fine_aligned_nano_gicp", 10);
     // subscribers
-    sub_odom_ = std::make_shared<message_filters::Subscriber<nav_msgs::Odometry>>(nh_, "/Odometry", 10);
-    sub_pcd_ = std::make_shared<message_filters::Subscriber<sensor_msgs::PointCloud2>>(nh_, "/cloud_registered", 10);
+    sub_odom_ = std::make_shared<message_filters::Subscriber<nav_msgs::msg::Odometry>>(node_, "/Odometry", 10);
+    sub_pcd_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(node_, "/cloud_registered", 10);
     sub_odom_pcd_sync_ = std::make_shared<message_filters::Synchronizer<odom_pcd_sync_pol>>(odom_pcd_sync_pol(10), *sub_odom_, *sub_pcd_);
-    sub_odom_pcd_sync_->registerCallback(boost::bind(&FastLioLocalizationQn::odomPcdCallback, this, _1, _2));
+    sub_odom_pcd_sync_->registerCallback(std::bind(&FastLioLocalizationQn::odomPcdCallback, this, 
+                                                   std::placeholders::_1, std::placeholders::_2));
     // Timers at the end
     match_timer_ = nh_.createTimer(ros::Duration(1 / map_match_hz), &FastLioLocalizationQn::matchingTimerFunc, this);
 
-    ROS_WARN("Main class, starting node...");
+    // ROS_WARN("Main class, starting node...");
+}
+
+void FastLioLocalizationQn::register_params(){
+
+    auto &gc = mm_config.gicp_config_;
+    auto &qc = mm_config.quatro_config_;
+
+    register_and_get_params<std::string>("/basic/map_frame", map_frame_, "map");
+    register_and_get_params<std::string>("/basic/saved_map", saved_map_path, "/home/mason/kitti.bag");
+    register_and_get_params<double>("/basic/map_match_hz", map_match_hz, 1.0);
+    register_and_get_params<double>("/basic/visualize_voxel_size", voxel_res_, 1.0);
+    /* keyframe */
+    register_and_get_params<double>("/keyframe/keyframe_threshold", keyframe_dist_thr_, 1.0);
+    register_and_get_params<int>("/keyframe/num_submap_keyframes", mm_config.num_submap_keyframes_, 5);
+    /* match */
+    register_and_get_params<double>("/match/match_detection_radius", mm_config.loop_detection_radius_, 15.0);
+    register_and_get_params<double>("/match/quatro_nano_gicp_voxel_resolution", mm_config.voxel_res_, 0.3);
+    /* nano */
+    register_and_get_params<int>("/nano_gicp/thread_number", gc.nano_thread_number_, 0);
+    register_and_get_params<double>("/nano_gicp/icp_score_threshold", gc.icp_score_thr_, 10.0);
+    register_and_get_params<int>("/nano_gicp/correspondences_number", gc.nano_correspondences_number_, 15);
+    register_and_get_params<double>("/nano_gicp/max_correspondence_distance", gc.max_corr_dist_, 5.0);
+    register_and_get_params<int>("/nano_gicp/max_iter", gc.nano_max_iter_, 32);
+    register_and_get_params<double>("/nano_gicp/transformation_epsilon", gc.transformation_epsilon_, 0.01);
+    register_and_get_params<double>("/nano_gicp/euclidean_fitness_epsilon", gc.euclidean_fitness_epsilon_, 0.01);
+    register_and_get_params<int>("/nano_gicp/ransac/max_iter", gc.nano_ransac_max_iter_, 5);
+    register_and_get_params<double>("/nano_gicp/ransac/outlier_rejection_threshold", gc.ransac_outlier_rejection_threshold_, 1.0);
+    register_and_get_params<bool>("/quatro/enable", mm_config.enable_quatro_, false);
+    register_and_get_params<bool>("/quatro/optimize_matching", qc.use_optimized_matching_, true);
+    register_and_get_params<double>("/quatro/distance_threshold", qc.quatro_distance_threshold_, 30.0);
+    register_and_get_params<int>("/quatro/max_correspondences", qc.quatro_max_num_corres_, 200);
+    register_and_get_params<double>("/quatro/fpfh_normal_radius", qc.fpfh_normal_radius_, 0.02);
+    register_and_get_params<double>("/quatro/fpfh_radius", qc.fpfh_radius_, 0.04);
+    register_and_get_params<bool>("/quatro/estimating_scale", qc.estimat_scale_, false);
+    register_and_get_params<double>("/quatro/noise_bound", qc.noise_bound_, 0.25);
+    register_and_get_params<double>("/quatro/rotation/gnc_factor", qc.rot_gnc_factor_, 0.25);
+    register_and_get_params<double>("/quatro/rotation/rot_cost_diff_threshold", qc.rot_cost_diff_thr_, 0.25);
+    register_and_get_params<int>("/quatro/rotation/num_max_iter", qc.quatro_max_iter_, 50);
 }
 
 void FastLioLocalizationQn::odomPcdCallback(const nav_msgs::OdometryConstPtr &odom_msg, const sensor_msgs::PointCloud2ConstPtr &pcd_msg)
