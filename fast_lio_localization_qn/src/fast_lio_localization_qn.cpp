@@ -1,4 +1,8 @@
 #include "fast_lio_localization_qn.h"
+#include <rosbag2_cpp/reader.hpp>
+#include <rosbag2_storage/storage_options.hpp>
+#include <rosbag2_cpp/typesupport_helpers.hpp>
+#include <rosbag2_cpp/converter_options.hpp>
 
 FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr& node_in):
   node_(node_in)
@@ -39,7 +43,8 @@ FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr& node_in):
     sub_odom_pcd_sync_->registerCallback(std::bind(&FastLioLocalizationQn::odomPcdCallback, this, 
                                                    std::placeholders::_1, std::placeholders::_2));
     // Timers at the end
-    match_timer_ = nh_.createTimer(ros::Duration(1 / map_match_hz), &FastLioLocalizationQn::matchingTimerFunc, this);
+    // match_timer_ = nh_.createTimer(ros::Duration(1 / map_match_hz), &FastLioLocalizationQn::matchingTimerFunc, this);
+    match_timer_ = node_->create_wall_timer(std::chrono::milliseconds(1), [this]() { matchingTimerFunc(); });
 
     // ROS_WARN("Main class, starting node...");
 }
@@ -132,7 +137,7 @@ void FastLioLocalizationQn::odomPcdCallback(const nav_msgs::OdometryConstPtr &od
     return;
 }
 
-void FastLioLocalizationQn::matchingTimerFunc(const ros::TimerEvent &event)
+void FastLioLocalizationQn::matchingTimerFunc()
 {
     if (!is_initialized_)
     {
@@ -167,7 +172,8 @@ void FastLioLocalizationQn::matchingTimerFunc(const ros::TimerEvent &event)
     //// 3. handle corrected results
     if (reg_output.is_valid_) // TF the pose with the result of match
     {
-        ROS_INFO("\033[1;32mMap matching accepted. Score: %.3f\033[0m", reg_output.score_);
+        // RCLCPP_INFO(node_->get_logger(), "\033[1;32mMap matching accepted. Score: %.3f\033[0m", reg_output.score_);
+        RCLCPP_INFO(node_->get_logger(), "\033[1;32mMap matching accepted. Score: %.3f\033[0m", reg_output.score_);
         last_corrected_TF_ = reg_output.pose_between_eig_ * last_corrected_TF_; // update TF
         Eigen::Matrix4d TFed_pose = reg_output.pose_between_eig_ * last_keyframe_copy.pose_corrected_eig_;
         // correct poses in vis data
@@ -206,7 +212,7 @@ void FastLioLocalizationQn::matchingTimerFunc(const ros::TimerEvent &event)
         saved_map_vis_switch_ = true;
     }
     high_resolution_clock::time_point t3_ = high_resolution_clock::now();
-    ROS_INFO("Matching: %.1fms, vis: %.1fms",
+    RCLCPP_INFO(node_->get_logger(), "Matching: %.1fms, vis: %.1fms",
              duration_cast<microseconds>(t2_ - t1_).count() / 1e3,
              duration_cast<microseconds>(t3_ - t2_).count() / 1e3);
     return;
@@ -225,9 +231,9 @@ void FastLioLocalizationQn::updateOdomsAndPaths(const PosePcd &pose_pcd_in)
     return;
 }
 
-visualization_msgs::Marker FastLioLocalizationQn::getMatchMarker(const std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>> &match_xyz_pairs)
+visualization_msgs::msg::Marker FastLioLocalizationQn::getMatchMarker(const std::vector<std::pair<pcl::PointXYZ, pcl::PointXYZ>> &match_xyz_pairs)
 {
-    visualization_msgs::Marker edges_;
+    visualization_msgs::msg::Marker edges_;
     edges_.type = 5u;
     edges_.scale.x = 0.2f;
     edges_.header.frame_id = map_frame_;
@@ -238,7 +244,7 @@ visualization_msgs::Marker FastLioLocalizationQn::getMatchMarker(const std::vect
     edges_.color.a = 1.0f;
     for (size_t i = 0; i < match_xyz_pairs.size(); ++i)
     {
-        geometry_msgs::Point p_, p2_;
+        geometry_msgs::msg::Point p_, p2_;
         p_.x = match_xyz_pairs[i].first.x;
         p_.y = match_xyz_pairs[i].first.y;
         p_.z = match_xyz_pairs[i].first.z;
@@ -258,28 +264,61 @@ bool FastLioLocalizationQn::checkIfKeyframe(const PosePcd &pose_pcd_in, const Po
 
 void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
 {
-    rosbag::Bag bag;
-    bag.open(saved_map_path, rosbag::bagmode::Read);
-    rosbag::View view1(bag, rosbag::TopicQuery("/keyframe_pcd"));
-    rosbag::View view2(bag, rosbag::TopicQuery("/keyframe_pose"));
-    std::vector<sensor_msgs::PointCloud2> load_pcd_vec;
-    std::vector<geometry_msgs::PoseStamped> load_pose_vec;
-    for (const rosbag::MessageInstance &pcd_msg : view1)
-    {
-        sensor_msgs::PointCloud2::ConstPtr pcd_msg_ptr = pcd_msg.instantiate<sensor_msgs::PointCloud2>();
-        if (pcd_msg_ptr != nullptr)
-        {
-            load_pcd_vec.push_back(*pcd_msg_ptr);
-        }
+    // rosbag::Bag bag;
+    // bag.open(saved_map_path, rosbag::bagmode::Read);
+    // rosbag::View view1(bag, rosbag::TopicQuery("/keyframe_pcd"));
+    // rosbag::View view2(bag, rosbag::TopicQuery("/keyframe_pose"));
+    std::vector<sensor_msgs::msg::PointCloud2> load_pcd_vec;
+    std::vector<geometry_msgs::msg::PoseStamped> load_pose_vec;
+    // for (const rosbag::MessageInstance &pcd_msg : view1)
+    // {
+    //     sensor_msgs::msg::PointCloud2::ConstPtr pcd_msg_ptr = pcd_msg.instantiate<sensor_msgs::PointCloud2>();
+    //     if (pcd_msg_ptr != nullptr)
+    //     {
+    //         load_pcd_vec.push_back(*pcd_msg_ptr);
+    //     }
+    // }
+    // for (const rosbag::MessageInstance &pose_msg : view2)
+    // {
+    //     geometry_msgs::msg::PoseStamped::ConstPtr pose_msg_ptr = pose_msg.instantiate<geometry_msgs::PoseStamped>();
+    //     if (pose_msg_ptr != nullptr)
+    //     {
+    //         load_pose_vec.push_back(*pose_msg_ptr);
+    //     }
+    // }
+  
+    rosbag2_cpp::Reader reader;
+    
+    rosbag2_storage::StorageOptions storage_options;
+    storage_options.uri = saved_map_path;
+    storage_options.storage_id = "sqlite3";
+
+    rosbag2_cpp::ConverterOptions converter_options;
+    converter_options.input_serialization_format = "cdr";
+    converter_options.output_serialization_format = "cdr";
+
+    // open the bag FILE
+    reader.open(storage_options, converter_options);
+    
+     while (reader.has_next()) {
+        // Read the serialized bag message
+        auto bag_message = reader.read_next();
+
+        // Deserialize the message
+        auto message_type_support = rosbag2_cpp::get_typesupport("sensor_msgs/msg/PointCloud2", "rosidl_typesupport_cpp"); // Update type
+        std::shared_ptr<rmw_serialized_message_t> serialized_message = bag_message->serialized_data;
+        auto pcd_msg_ptr = std::make_shared<sensror_msgs::msg::PointCloud2>();
+
+        rclcpp::Serialization<std_msgs::msg::String> serializer;
+        serializer.deserialize_message(serialized_message.get(), string_message.get());
+        load_pcd_vec.push_back(*pcd_msg_ptr);
+
+
+        // Output the message content
     }
-    for (const rosbag::MessageInstance &pose_msg : view2)
-    {
-        geometry_msgs::PoseStamped::ConstPtr pose_msg_ptr = pose_msg.instantiate<geometry_msgs::PoseStamped>();
-        if (pose_msg_ptr != nullptr)
-        {
-            load_pose_vec.push_back(*pose_msg_ptr);
-        }
-    }
+
+    
+
     if (load_pcd_vec.size() != load_pose_vec.size())
     {
         ROS_ERROR("WRONG BAG FILE!!!!!");

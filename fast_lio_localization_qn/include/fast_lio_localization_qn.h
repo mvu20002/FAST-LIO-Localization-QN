@@ -98,7 +98,7 @@ private:
     // cb
     void odomPcdCallback(const nav_msgs::msg::Odometry::ConstSharedPtr &odom_msg,
                          const sensor_msgs::msg::PointCloud2::ConstSharedPtr &pcd_msg);
-    void matchingTimerFunc(const ros::TimerEvent &event);
+    void matchingTimerFunc();
 
     void register_params();
     void get_params();
