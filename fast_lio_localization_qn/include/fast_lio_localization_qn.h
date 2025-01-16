@@ -68,10 +68,23 @@ private:
     pcl::PointCloud<PointType> saved_map_pcd_; // for vis
     ///// ros
     // ros::NodeHandle nh_;
-    rclcpp::PublisherBase::SharedPtr corrected_odom_pub_, corrected_path_pub_, odom_pub_, path_pub_;
-    rclcpp::PublisherBase::SharedPtr corrected_current_pcd_pub_, realtime_pose_pub_, map_match_pub_;
-    rclcpp::PublisherBase::SharedPtr saved_map_pub_;
-    rclcpp::PublisherBase::SharedPtr debug_src_pub_, debug_dst_pub_, debug_coarse_aligned_pub_, debug_fine_aligned_pub_;
+    rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr path_pub_, corrected_path_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr saved_map_pub_, corrected_current_pcd_pub_, corrected_odom_pub_,  odom_pub_;
+    rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr realtime_pose_pub_; 
+    rclcpp::Publisher<visualization_msgs::msg::Marker>::SharedPtr map_match_pub_;
+    rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr  debug_src_pub_, debug_dst_pub_, debug_coarse_aligned_pub_, debug_fine_aligned_pub_;
+    // odom_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/ori_odom", 10 );
+    // path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("/ori_path", 10 );
+    // corrected_odom_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/corrected_odom", 10 );
+    // corrected_path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("/corrected_path", 10 );
+    // corrected_current_pcd_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/corrected_current_pcd", 10 );
+    // map_match_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("/map_match", 10 );
+    // realtime_pose_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("/pose_stamped", 10);
+    // saved_map_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/saved_map", 10 );
+    // debug_src_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/src", 10);
+    // debug_dst_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/dst", 10);
+    // debug_coarse_aligned_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/coarse_aligned_quatro", 10);
+    // debug_fine_aligned_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/fine_aligned_nano_gicp", 10);
     rclcpp::TimerBase::SharedPtr match_timer_;
     // odom, pcd sync subscriber
     std::shared_ptr<message_filters::Synchronizer<odom_pcd_sync_pol>> sub_odom_pcd_sync_ = nullptr;
@@ -108,7 +121,7 @@ private:
                                         T &param,
                                         const T &param_default)
     {
-        node_->declare_parameter<T>(param_name, param, param_default);
+        node_->declare_parameter<T>(param_name, param_default);
         node_->get_parameter<T>(param_name, param);
     }
 };

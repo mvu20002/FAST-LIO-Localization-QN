@@ -4,6 +4,7 @@
 #include <rosbag2_cpp/typesupport_helpers.hpp>
 #include <rosbag2_cpp/converter_options.hpp>
 
+#include <std_msgs/msg/string.hpp>
 FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr& node_in):
   node_(node_in)
 {
@@ -24,21 +25,21 @@ FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr& node_in):
     raw_odom_path_.header.frame_id = map_frame_;
     corrected_odom_path_.header.frame_id = map_frame_;
     // publishers
-    odom_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/ori_odom", 10, true);
-    path_pub_ = node_->create_subscription<nav_msgs::msg::Path>("/ori_path", 10, true);
-    corrected_odom_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/corrected_odom", 10, true);
-    corrected_path_pub_ = node_->create_subscription<nav_msgs::msg::Path>("/corrected_path", 10, true);
-    corrected_current_pcd_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/corrected_current_pcd", 10, true);
-    map_match_pub_ = node_->create_subscription<visualization_msgs::msg::Marker>("/map_match", 10, true);
-    realtime_pose_pub_ = node_->create_subscription<geometry_msgs::msg::PoseStamped>("/pose_stamped", 10);
-    saved_map_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/saved_map", 10, true);
-    debug_src_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/src", 10);
-    debug_dst_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/dst", 10);
-    debug_coarse_aligned_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/coarse_aligned_quatro", 10);
-    debug_fine_aligned_pub_ = node_->create_subscription<sensor_msgs::msg::PointCloud2>("/fine_aligned_nano_gicp", 10);
+    odom_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/ori_odom", 10 );
+    path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("/ori_path", 10 );
+    corrected_odom_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/corrected_odom", 10 );
+    corrected_path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("/corrected_path", 10 );
+    corrected_current_pcd_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/corrected_current_pcd", 10 );
+    map_match_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("/map_match", 10 );
+    realtime_pose_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("/pose_stamped", 10);
+    saved_map_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/saved_map", 10 );
+    debug_src_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/src", 10);
+    debug_dst_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/dst", 10);
+    debug_coarse_aligned_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/coarse_aligned_quatro", 10);
+    debug_fine_aligned_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/fine_aligned_nano_gicp", 10);
     // subscribers
-    sub_odom_ = std::make_shared<message_filters::Subscriber<nav_msgs::msg::Odometry>>(node_, "/Odometry", 10);
-    sub_pcd_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(node_, "/cloud_registered", 10);
+    sub_odom_ = std::make_shared<message_filters::Subscriber<nav_msgs::msg::Odometry>>(node_.get(), "/Odometry");
+    sub_pcd_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(node_.get(), "/cloud_registered");
     sub_odom_pcd_sync_ = std::make_shared<message_filters::Synchronizer<odom_pcd_sync_pol>>(odom_pcd_sync_pol(10), *sub_odom_, *sub_pcd_);
     sub_odom_pcd_sync_->registerCallback(std::bind(&FastLioLocalizationQn::odomPcdCallback, this, 
                                                    std::placeholders::_1, std::placeholders::_2));
@@ -87,19 +88,19 @@ void FastLioLocalizationQn::register_params(){
     register_and_get_params<int>("/quatro/rotation/num_max_iter", qc.quatro_max_iter_, 50);
 }
 
-void FastLioLocalizationQn::odomPcdCallback(const nav_msgs::OdometryConstPtr &odom_msg, const sensor_msgs::PointCloud2ConstPtr &pcd_msg)
+void FastLioLocalizationQn::odomPcdCallback(const nav_msgs::msg::Odometry::ConstSharedPtr &odom_msg, const sensor_msgs::msg::PointCloud2::ConstSharedPtr &pcd_msg)
 {
     PosePcd current_frame = PosePcd(*odom_msg, *pcd_msg, current_keyframe_idx_); // to be checked if keyframe or not
     //// 1. realtime pose = last TF * odom
     current_frame.pose_corrected_eig_ = last_corrected_TF_ * current_frame.pose_eig_;
-    geometry_msgs::PoseStamped current_pose_stamped_ = poseEigToPoseStamped(current_frame.pose_corrected_eig_, map_frame_);
-    realtime_pose_pub_.publish(current_pose_stamped_);
-    broadcaster_.sendTransform(tf::StampedTransform(poseEigToROSTf(current_frame.pose_corrected_eig_),
-                                                    ros::Time::now(),
+    geometry_msgs::msg::PoseStamped current_pose_stamped_ = poseEigToPoseStamped(current_frame.pose_corrected_eig_, map_frame_);
+    realtime_pose_pub_->publish(current_pose_stamped_);
+    broadcaster_.sendTransform(tf2::StampedTransform(poseEigToROSTf(current_frame.pose_corrected_eig_),
+                                                    node_->get_clock()->now(),
                                                     map_frame_,
                                                     "robot"));
     // pub current scan in corrected pose frame
-    corrected_current_pcd_pub_.publish(pclToPclRos(transformPcd(current_frame.pcd_, current_frame.pose_corrected_eig_), map_frame_));
+    corrected_current_pcd_pub_->publish(pclToPclRos(transformPcd(current_frame.pcd_, current_frame.pose_corrected_eig_), map_frame_));
 
     if (!is_initialized_) //// init only once
     {
@@ -184,30 +185,30 @@ void FastLioLocalizationQn::matchingTimerFunc()
         }
         // map matches
         matched_pairs_xyz_.push_back({corrected_odoms_.points[last_keyframe_copy.idx_], raw_odoms_.points[last_keyframe_copy.idx_]}); // for vis
-        map_match_pub_.publish(getMatchMarker(matched_pairs_xyz_));
+        map_match_pub_->publish(getMatchMarker(matched_pairs_xyz_));
     }
     high_resolution_clock::time_point t2_ = high_resolution_clock::now();
 
     //// 4. vis
-    debug_src_pub_.publish(pclToPclRos(map_matcher_->getSourceCloud(), map_frame_));
-    debug_dst_pub_.publish(pclToPclRos(map_matcher_->getTargetCloud(), map_frame_));
-    debug_coarse_aligned_pub_.publish(pclToPclRos(map_matcher_->getCoarseAlignedCloud(), map_frame_));
-    debug_fine_aligned_pub_.publish(pclToPclRos(map_matcher_->getFinalAlignedCloud(), map_frame_));
+    debug_src_pub_->publish(pclToPclRos(map_matcher_->getSourceCloud(), map_frame_));
+    debug_dst_pub_->publish(pclToPclRos(map_matcher_->getTargetCloud(), map_frame_));
+    debug_coarse_aligned_pub_->publish(pclToPclRos(map_matcher_->getCoarseAlignedCloud(), map_frame_));
+    debug_fine_aligned_pub_->publish(pclToPclRos(map_matcher_->getFinalAlignedCloud(), map_frame_));
     // publish odoms and paths
     {
         std::lock_guard<std::mutex> lock(vis_mutex_);
-        corrected_odom_pub_.publish(pclToPclRos(corrected_odoms_, map_frame_));
-        corrected_path_pub_.publish(corrected_odom_path_);
+        corrected_odom_pub_->publish(pclToPclRos(corrected_odoms_, map_frame_));
+        corrected_path_pub_->publish(corrected_odom_path_);
     }
-    odom_pub_.publish(pclToPclRos(raw_odoms_, map_frame_));
-    path_pub_.publish(raw_odom_path_);
+    odom_pub_->publish(pclToPclRos(raw_odoms_, map_frame_));
+    path_pub_->publish(raw_odom_path_);
     // publish saved map
-    if (saved_map_vis_switch_ && saved_map_pub_.getNumSubscribers() > 0)
+    if (saved_map_vis_switch_ && saved_map_pub_->getNumSubscribers() > 0)
     {
-        saved_map_pub_.publish(pclToPclRos(saved_map_pcd_, map_frame_));
+        saved_map_pub_->publish(pclToPclRos(saved_map_pcd_, map_frame_));
         saved_map_vis_switch_ = false;
     }
-    if (!saved_map_vis_switch_ && saved_map_pub_.getNumSubscribers() == 0)
+    if (!saved_map_vis_switch_ && saved_map_pub_->getNumSubscribers() == 0)
     {
         saved_map_vis_switch_ = true;
     }
@@ -305,12 +306,12 @@ void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
         auto bag_message = reader.read_next();
 
         // Deserialize the message
-        auto message_type_support = rosbag2_cpp::get_typesupport("sensor_msgs/msg/PointCloud2", "rosidl_typesupport_cpp"); // Update type
+        // auto message_type_support = rosbag2_cpp::get_typesupport("sensor_msgs/msg/PointCloud2", "rosidl_typesupport_cpp"); // Update type
         std::shared_ptr<rmw_serialized_message_t> serialized_message = bag_message->serialized_data;
-        auto pcd_msg_ptr = std::make_shared<sensror_msgs::msg::PointCloud2>();
+        auto pcd_msg_ptr = std::make_shared<sensor_msgs::msg::PointCloud2>();
 
-        rclcpp::Serialization<std_msgs::msg::String> serializer;
-        serializer.deserialize_message(serialized_message.get(), string_message.get());
+        rclcpp::Serialization<sensor_msgs::msg::PointCloud2> serializer;
+        serializer.deserialize_message(serialized_message.get(), pcd_msg_ptr.get());
         load_pcd_vec.push_back(*pcd_msg_ptr);
 
 
@@ -321,7 +322,7 @@ void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
 
     if (load_pcd_vec.size() != load_pose_vec.size())
     {
-        ROS_ERROR("WRONG BAG FILE!!!!!");
+        RCLCPP_ERROR(node_->get_logger(), "WRONG BAG FILE!!!!!");
     }
     for (size_t i = 0; i < load_pose_vec.size(); ++i)
     {
