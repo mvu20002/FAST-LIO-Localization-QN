@@ -10,6 +10,7 @@
 // #include <tf/transform_datatypes.h>   // createQuaternionFromRPY
 // #include <tf_conversions/tf_eigen.h>  // tf <-> eigen
 #include <geometry_msgs/msg/pose_stamped.hpp>
+#include <geometry_msgs/msg/transform_stamped.hpp>
 #include <sensor_msgs/msg/point_cloud2.hpp>
 #include <nav_msgs/msg/odometry.hpp>
 ///// PCL
@@ -41,6 +42,25 @@ inline geometry_msgs::msg::PoseStamped poseEigToPoseStamped(const Eigen::Matrix4
     pose.pose.orientation.y = quat.y();
     pose.pose.orientation.z = quat.z();
     return pose;
+}
+
+inline geometry_msgs::msg::TransformStamped  poseEigToTransformStamped(const Eigen::Matrix4d &pose_eig_in, const rclcpp::Time& time,
+                                                       std::string frame_id = "map", std::string child_frame_id = "body")
+{
+    Eigen::Quaterniond quat(pose_eig_in.block<3, 3>(0, 0));
+    geometry_msgs::msg::TransformStamped transform;
+    transform.header.frame_id = frame_id;
+    transform.header.stamp = time;
+    transform.child_frame_id = child_frame_id;
+    transform.transform.translation.x = pose_eig_in(0, 3);
+    transform.transform.translation.y = pose_eig_in(1, 3);
+    transform.transform.translation.z = pose_eig_in(2, 3);
+    transform.transform.rotation.w = quat.w();
+    transform.transform.rotation.x = quat.x();
+    transform.transform.rotation.y = quat.y();
+    transform.transform.rotation.z = quat.z();
+
+    return transform;
 }
 
 inline tf2::Transform poseEigToROSTf(const Eigen::Matrix4d &pose)

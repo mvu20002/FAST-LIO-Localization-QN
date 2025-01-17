@@ -4,14 +4,16 @@
 #include <rosbag2_cpp/typesupport_helpers.hpp>
 #include <rosbag2_cpp/converter_options.hpp>
 
+#include <geometry_msgs/msg/transform_stamped.hpp>
+
 #include <std_msgs/msg/string.hpp>
-FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr& node_in):
-  node_(node_in)
+FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr &node_in):
+    node_(node_in)
 {
     ////// ROS params
     // temp vars, only used in constructor
     // get params
-    
+
     register_params();
     /* basic */
 
@@ -25,14 +27,14 @@ FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr& node_in):
     raw_odom_path_.header.frame_id = map_frame_;
     corrected_odom_path_.header.frame_id = map_frame_;
     // publishers
-    odom_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/ori_odom", 10 );
-    path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("/ori_path", 10 );
-    corrected_odom_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/corrected_odom", 10 );
-    corrected_path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("/corrected_path", 10 );
-    corrected_current_pcd_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/corrected_current_pcd", 10 );
-    map_match_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("/map_match", 10 );
+    odom_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/ori_odom", 10);
+    path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("/ori_path", 10);
+    corrected_odom_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/corrected_odom", 10);
+    corrected_path_pub_ = node_->create_publisher<nav_msgs::msg::Path>("/corrected_path", 10);
+    corrected_current_pcd_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/corrected_current_pcd", 10);
+    map_match_pub_ = node_->create_publisher<visualization_msgs::msg::Marker>("/map_match", 10);
     realtime_pose_pub_ = node_->create_publisher<geometry_msgs::msg::PoseStamped>("/pose_stamped", 10);
-    saved_map_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/saved_map", 10 );
+    saved_map_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/saved_map", 10);
     debug_src_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/src", 10);
     debug_dst_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/dst", 10);
     debug_coarse_aligned_pub_ = node_->create_publisher<sensor_msgs::msg::PointCloud2>("/coarse_aligned_quatro", 10);
@@ -41,17 +43,18 @@ FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr& node_in):
     sub_odom_ = std::make_shared<message_filters::Subscriber<nav_msgs::msg::Odometry>>(node_.get(), "/Odometry");
     sub_pcd_ = std::make_shared<message_filters::Subscriber<sensor_msgs::msg::PointCloud2>>(node_.get(), "/cloud_registered");
     sub_odom_pcd_sync_ = std::make_shared<message_filters::Synchronizer<odom_pcd_sync_pol>>(odom_pcd_sync_pol(10), *sub_odom_, *sub_pcd_);
-    sub_odom_pcd_sync_->registerCallback(std::bind(&FastLioLocalizationQn::odomPcdCallback, this, 
-                                                   std::placeholders::_1, std::placeholders::_2));
+    sub_odom_pcd_sync_->registerCallback(std::bind(&FastLioLocalizationQn::odomPcdCallback, this, std::placeholders::_1, std::placeholders::_2));
     // Timers at the end
     // match_timer_ = nh_.createTimer(ros::Duration(1 / map_match_hz), &FastLioLocalizationQn::matchingTimerFunc, this);
-    match_timer_ = node_->create_wall_timer(std::chrono::milliseconds(1), [this]() { matchingTimerFunc(); });
+    match_timer_ = node_->create_wall_timer(std::chrono::milliseconds(1), [this]()
+                                            { matchingTimerFunc(); });
+    tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(node_);
 
     // ROS_WARN("Main class, starting node...");
 }
 
-void FastLioLocalizationQn::register_params(){
-
+void FastLioLocalizationQn::register_params()
+{
     auto &gc = mm_config.gicp_config_;
     auto &qc = mm_config.quatro_config_;
 
@@ -95,10 +98,11 @@ void FastLioLocalizationQn::odomPcdCallback(const nav_msgs::msg::Odometry::Const
     current_frame.pose_corrected_eig_ = last_corrected_TF_ * current_frame.pose_eig_;
     geometry_msgs::msg::PoseStamped current_pose_stamped_ = poseEigToPoseStamped(current_frame.pose_corrected_eig_, map_frame_);
     realtime_pose_pub_->publish(current_pose_stamped_);
-    broadcaster_.sendTransform(tf2::StampedTransform(poseEigToROSTf(current_frame.pose_corrected_eig_),
-                                                    node_->get_clock()->now(),
-                                                    map_frame_,
-                                                    "robot"));
+
+    geometry_msgs::msg::TransformStamped tf_msg_ = poseEigToTransformStamped(
+        current_frame.pose_corrected_eig_, node_->get_clock()->now(), map_frame_, "robot");
+    tf_broadcaster_->sendTransform(tf_msg_);
+
     // pub current scan in corrected pose frame
     corrected_current_pcd_pub_->publish(pclToPclRos(transformPcd(current_frame.pcd_, current_frame.pose_corrected_eig_), map_frame_));
 
@@ -203,19 +207,17 @@ void FastLioLocalizationQn::matchingTimerFunc()
     odom_pub_->publish(pclToPclRos(raw_odoms_, map_frame_));
     path_pub_->publish(raw_odom_path_);
     // publish saved map
-    if (saved_map_vis_switch_ && saved_map_pub_->getNumSubscribers() > 0)
+    if (saved_map_vis_switch_ && saved_map_pub_->get_subscription_count() > 0)
     {
         saved_map_pub_->publish(pclToPclRos(saved_map_pcd_, map_frame_));
         saved_map_vis_switch_ = false;
     }
-    if (!saved_map_vis_switch_ && saved_map_pub_->getNumSubscribers() == 0)
+    if (!saved_map_vis_switch_ && saved_map_pub_->get_subscription_count() == 0)
     {
         saved_map_vis_switch_ = true;
     }
     high_resolution_clock::time_point t3_ = high_resolution_clock::now();
-    RCLCPP_INFO(node_->get_logger(), "Matching: %.1fms, vis: %.1fms",
-             duration_cast<microseconds>(t2_ - t1_).count() / 1e3,
-             duration_cast<microseconds>(t3_ - t2_).count() / 1e3);
+    RCLCPP_INFO(node_->get_logger(), "Matching: %.1fms, vis: %.1fms", duration_cast<microseconds>(t2_ - t1_).count() / 1e3, duration_cast<microseconds>(t3_ - t2_).count() / 1e3);
     return;
 }
 
@@ -287,9 +289,9 @@ void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
     //         load_pose_vec.push_back(*pose_msg_ptr);
     //     }
     // }
-  
+
     rosbag2_cpp::Reader reader;
-    
+
     rosbag2_storage::StorageOptions storage_options;
     storage_options.uri = saved_map_path;
     storage_options.storage_id = "sqlite3";
@@ -300,25 +302,30 @@ void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
 
     // open the bag FILE
     reader.open(storage_options, converter_options);
-    
-     while (reader.has_next()) {
-        // Read the serialized bag message
-        auto bag_message = reader.read_next();
+    rclcpp::Serialization<sensor_msgs::msg::PointCloud2> pointcloud2_serialization_;
+    rclcpp::Serialization<geometry_msgs::msg::PoseStamped> posestamped_serialization_;
 
-        // Deserialize the message
-        // auto message_type_support = rosbag2_cpp::get_typesupport("sensor_msgs/msg/PointCloud2", "rosidl_typesupport_cpp"); // Update type
-        std::shared_ptr<rmw_serialized_message_t> serialized_message = bag_message->serialized_data;
-        auto pcd_msg_ptr = std::make_shared<sensor_msgs::msg::PointCloud2>();
+    while (reader.has_next())
+    {
+        rosbag2_storage::SerializedBagMessageSharedPtr msg = reader.read_next();
 
-        rclcpp::Serialization<sensor_msgs::msg::PointCloud2> serializer;
-        serializer.deserialize_message(serialized_message.get(), pcd_msg_ptr.get());
-        load_pcd_vec.push_back(*pcd_msg_ptr);
+        if (msg->topic_name == "/turtle1/pose")
+        {
+            rclcpp::SerializedMessage serialized_msg(*msg->serialized_data);
+            sensor_msgs::msg::PointCloud2::SharedPtr ros_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
 
+            pointcloud2_serialization_.deserialize_message(&serialized_msg, ros_msg.get());
+            load_pcd_vec.push_back(*ros_msg);
+        }
+        else if (msg->topic_name == "/turtle1/pose")
+        {
+            rclcpp::SerializedMessage serialized_msg(*msg->serialized_data);
+            geometry_msgs::msg::PoseStamped::SharedPtr ros_msg = std::make_shared<geometry_msgs::msg::PoseStamped>();
 
-        // Output the message content
+            posestamped_serialization_.deserialize_message(&serialized_msg, ros_msg.get());
+            load_pose_vec.push_back(*ros_msg);
+        }
     }
-
-    
 
     if (load_pcd_vec.size() != load_pose_vec.size())
     {
@@ -330,6 +337,6 @@ void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
         saved_map_pcd_ += transformPcd(saved_map_from_bag_[i].pcd_, saved_map_from_bag_[i].pose_eig_);
     }
     saved_map_pcd_ = *voxelizePcd(saved_map_pcd_, voxel_res_);
-    bag.close();
+    // bag.close();
     return;
 }
