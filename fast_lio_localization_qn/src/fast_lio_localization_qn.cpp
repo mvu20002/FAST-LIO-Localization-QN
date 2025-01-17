@@ -46,7 +46,7 @@ FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr &node_in):
     sub_odom_pcd_sync_->registerCallback(std::bind(&FastLioLocalizationQn::odomPcdCallback, this, std::placeholders::_1, std::placeholders::_2));
     // Timers at the end
     // match_timer_ = nh_.createTimer(ros::Duration(1 / map_match_hz), &FastLioLocalizationQn::matchingTimerFunc, this);
-    match_timer_ = node_->create_wall_timer(std::chrono::milliseconds(1), [this]()
+    match_timer_ = node_->create_wall_timer(std::chrono::milliseconds(int(1000.0 / map_match_hz)), [this]()
                                             { matchingTimerFunc(); });
     tf_broadcaster_ = std::make_unique<tf2_ros::TransformBroadcaster>(node_);
 
