@@ -267,28 +267,8 @@ bool FastLioLocalizationQn::checkIfKeyframe(const PosePcd &pose_pcd_in, const Po
 
 void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
 {
-    // rosbag::Bag bag;
-    // bag.open(saved_map_path, rosbag::bagmode::Read);
-    // rosbag::View view1(bag, rosbag::TopicQuery("/keyframe_pcd"));
-    // rosbag::View view2(bag, rosbag::TopicQuery("/keyframe_pose"));
     std::vector<sensor_msgs::msg::PointCloud2> load_pcd_vec;
     std::vector<geometry_msgs::msg::PoseStamped> load_pose_vec;
-    // for (const rosbag::MessageInstance &pcd_msg : view1)
-    // {
-    //     sensor_msgs::msg::PointCloud2::ConstPtr pcd_msg_ptr = pcd_msg.instantiate<sensor_msgs::PointCloud2>();
-    //     if (pcd_msg_ptr != nullptr)
-    //     {
-    //         load_pcd_vec.push_back(*pcd_msg_ptr);
-    //     }
-    // }
-    // for (const rosbag::MessageInstance &pose_msg : view2)
-    // {
-    //     geometry_msgs::msg::PoseStamped::ConstPtr pose_msg_ptr = pose_msg.instantiate<geometry_msgs::PoseStamped>();
-    //     if (pose_msg_ptr != nullptr)
-    //     {
-    //         load_pose_vec.push_back(*pose_msg_ptr);
-    //     }
-    // }
 
     rosbag2_cpp::Reader reader;
 
@@ -309,7 +289,7 @@ void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
     {
         rosbag2_storage::SerializedBagMessageSharedPtr msg = reader.read_next();
 
-        if (msg->topic_name == "/turtle1/pose")
+        if (msg->topic_name == "/keyframe_pcd")
         {
             rclcpp::SerializedMessage serialized_msg(*msg->serialized_data);
             sensor_msgs::msg::PointCloud2::SharedPtr ros_msg = std::make_shared<sensor_msgs::msg::PointCloud2>();
@@ -317,7 +297,7 @@ void FastLioLocalizationQn::loadMap(const std::string &saved_map_path)
             pointcloud2_serialization_.deserialize_message(&serialized_msg, ros_msg.get());
             load_pcd_vec.push_back(*ros_msg);
         }
-        else if (msg->topic_name == "/turtle1/pose")
+        else if (msg->topic_name == "/keyframe_pose")
         {
             rclcpp::SerializedMessage serialized_msg(*msg->serialized_data);
             geometry_msgs::msg::PoseStamped::SharedPtr ros_msg = std::make_shared<geometry_msgs::msg::PoseStamped>();
