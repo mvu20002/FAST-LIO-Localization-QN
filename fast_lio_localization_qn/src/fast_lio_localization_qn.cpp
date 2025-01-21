@@ -21,7 +21,7 @@ FastLioLocalizationQn::FastLioLocalizationQn(rclcpp::Node::SharedPtr &node_in):
     map_matcher_ = std::make_shared<MapMatcher>(mm_config);
 
     ////// Load map
-    loadMap(saved_map_path);
+    // loadMap(saved_map_path);
 
     ////// ROS things
     raw_odom_path_.header.frame_id = map_frame_;
@@ -59,7 +59,7 @@ void FastLioLocalizationQn::register_params()
     auto &qc = mm_config.quatro_config_;
 
     register_and_get_params<std::string>("/basic/map_frame", map_frame_, "map");
-    register_and_get_params<std::string>("/basic/saved_map", saved_map_path, "/home/mason/kitti.bag");
+    register_and_get_params<std::string>("/basic/saved_map", saved_map_path, "/home/manh/kitti.bag");
     register_and_get_params<double>("/basic/map_match_hz", map_match_hz, 1.0);
     register_and_get_params<double>("/basic/visualize_voxel_size", voxel_res_, 1.0);
     /* keyframe */

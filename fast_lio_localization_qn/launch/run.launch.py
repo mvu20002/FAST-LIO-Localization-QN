@@ -1,4 +1,3 @@
-
 import os.path
 
 from ament_index_python.packages import get_package_share_directory
@@ -17,6 +16,10 @@ def generate_launch_description():
     default_rviz_config_path = os.path.join(
         package_path, 'rviz', 'fastlio.rviz')
 
+    localization_qn_path = get_package_share_directory('fast_lio_localization_qn')
+    localization_qn_config_path = os.path.join(
+        localization_qn_path, 'config') 
+
     use_sim_time = LaunchConfiguration('use_sim_time')
     config_path = LaunchConfiguration('config_path')
     config_file = LaunchConfiguration('config_file')
@@ -34,7 +37,7 @@ def generate_launch_description():
         description='Yaml config file path'
     )
     decalre_config_file_cmd = DeclareLaunchArgument(
-        'config_file', default_value='mid360.yaml',
+        'config_file', default_value='ouster64.yaml',
         description='Config file'
     )
     declare_rviz_cmd = DeclareLaunchArgument(
@@ -72,7 +75,8 @@ def generate_launch_description():
     fastlio_qn_node = Node(
         package='fast_lio_localization_qn',
         executable='fast_lio_localization_qn_node',
-        remappings=[('/Odometry', )],
+        parameters=[PathJoinSubstitution([localization_qn_config_path, 'config.yaml'])],
+        remappings=[('/Odometry', odom_topic), ('/cloud_registered', cloud_registered_topic)],
         output='screen'
     )
 
@@ -86,6 +90,7 @@ def generate_launch_description():
     ld.add_action(declare_cloud_registered_topic_cmd)
 
     ld.add_action(fast_lio_node)
+    ld.add_action(fastlio_qn_node)
     ld.add_action(rviz_node)
 
     return ld

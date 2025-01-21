@@ -43,7 +43,16 @@ set(COMMON_LIBS  ${PCL_LIBRARIES} ${EIGEN3_LIBS} ${OpenMP_LIBS})
 ament_auto_add_library(${PROJECT_NAME}_modules  src/fast_lio_localization_qn.cpp src/map_matcher.cpp)
 target_link_libraries(${PROJECT_NAME}_modules ${COMMON_LIBS} teaserpp::teaser_registration teaserpp::teaser_io)
 
-# ament_auto_add_executable(${PROJECT_NAME}_node src/main.cpp)
-# target_link_libraries(${PROJECT_NAME}_node ${COMMON_LIBS} ${PROJECT_NAME}_modules)
+ament_auto_add_executable(${PROJECT_NAME}_node src/main.cpp)
+target_link_libraries(${PROJECT_NAME}_node ${COMMON_LIBS} ${PROJECT_NAME}_modules)
 
+# ---------------- Install --------------- #
+install(TARGETS ${PROJECT_NAME}_node
+  DESTINATION lib/${PROJECT_NAME}
+)
+
+install(
+  DIRECTORY config launch 
+  DESTINATION share/${PROJECT_NAME}
+)
 ament_auto_package()
