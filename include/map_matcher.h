@@ -1,5 +1,5 @@
-#ifndef FAST_LIO_LOCALIZATION_QN_MAP_MATCHER_H
-#define FAST_LIO_LOCALIZATION_QN_MAP_MATCHER_H
+#ifndef LOCALIZATION_QN_MAP_MATCHER_H
+#define LOCALIZATION_QN_MAP_MATCHER_H
 
 ///// C++ common headers
 #include <tuple>
@@ -104,4 +104,4 @@ public:
     int getClosestKeyframeidx();
 };
 
-#endif // FAST_LIO_LOCALIZATION_QN_MAP_MATCHER_H
+#endif // LOCALIZATION_QN_MAP_MATCHER_H

@@ -1,5 +1,5 @@
-#ifndef FAST_LIO_LOCALIZATION_QN_MAIN_H
-#define FAST_LIO_LOCALIZATION_QN_MAIN_H
+#ifndef LOCALIZATION_QN_MAIN_H
+#define LOCALIZATION_QN_MAIN_H
 
 ///// common headers
 #include <ctime>

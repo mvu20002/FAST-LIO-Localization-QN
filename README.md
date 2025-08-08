@@ -53,15 +53,15 @@ ROS2 Wrapper for FAST-LIO-Localization-QN
 ## How to run
 + Then run (change config files in third_party/`FAST_LIO`)
     ```shell
-    roslaunch fast_lio_localization_qn run.launch lidar:=ouster
-    roslaunch fast_lio_localization_qn run.launch lidar:=velodyne
-    roslaunch fast_lio_localization_qn run.launch lidar:=livox
+    roslaunch localization_qn run.launch lidar:=ouster
+    roslaunch localization_qn run.launch lidar:=velodyne
+    roslaunch localization_qn run.launch lidar:=livox
     ```
 * In particular, we provide a preset launch option for specific datasets:
     ```shell
-    roslaunch fast_lio_localization_qn run.launch lidar:=kitti
-    roslaunch fast_lio_localization_qn run.launch lidar:=mulran
-    roslaunch fast_lio_localization_qn run.launch lidar:=newer-college20
+    roslaunch localization_qn run.launch lidar:=kitti
+    roslaunch localization_qn run.launch lidar:=mulran
+    roslaunch localization_qn run.launch lidar:=newer-college20
     ```
 
 <br>

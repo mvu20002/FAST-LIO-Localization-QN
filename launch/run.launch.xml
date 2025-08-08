@@ -6,12 +6,12 @@
 	<arg name="lidar_topic" default="/cloud_registered" />
 
 	<!-- visualize -->
-	<!--node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz_lio" args="-d $(find fast_lio_localization_qn)/config/lio_rviz.rviz" launch-prefix="nice"/-->
-	<node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz_sam" args="-d $(find fast_lio_localization_qn)/config/localization_rviz.rviz" launch-prefix="nice"/>
+	<!--node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz_lio" args="-d $(find localization_qn)/config/lio_rviz.rviz" launch-prefix="nice"/-->
+	<node if="$(arg rviz)" pkg="rviz" type="rviz" name="rviz_sam" args="-d $(find localization_qn)/config/localization_rviz.rviz" launch-prefix="nice"/>
 
-	<!-- run fast_lio_localization_qn -->
-	<rosparam command="load" file="$(find fast_lio_localization_qn)/config/config.yaml" />
-	<node pkg="fast_lio_localization_qn" type="fast_lio_localization_qn_node" name="fast_lio_localization_qn_node" output="screen">
+	<!-- run localization_qn -->
+	<rosparam command="load" file="$(find localization_qn)/config/config.yaml" />
+	<node pkg="localization_qn" type="localization_qn_node" name="localization_qn_node" output="screen">
 		<remap from="/Odometry" to="$(arg odom_topic)"/>
 		<remap from="/cloud_registered" to="$(arg lidar_topic)"/>
 	</node>

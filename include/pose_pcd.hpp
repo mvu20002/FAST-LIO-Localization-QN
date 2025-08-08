@@ -1,5 +1,5 @@
-#ifndef FAST_LIO_LOCALIZATION_QN_POSE_PCD_HPP
-#define FAST_LIO_LOCALIZATION_QN_POSE_PCD_HPP
+#ifndef LOCALIZATION_QN_POSE_PCD_HPP
+#define LOCALIZATION_QN_POSE_PCD_HPP
 
 ///// coded headers
 #include "utilities.hpp"
@@ -65,4 +65,4 @@ inline PosePcdReduced::PosePcdReduced(const geometry_msgs::msg::PoseStamped &pos
     idx_ = idx_in;
 }
 
-#endif // FAST_LIO_LOCALIZATION_QN_POSE_PCD_HPP
+#endif // LOCALIZATION_QN_POSE_PCD_HPP
